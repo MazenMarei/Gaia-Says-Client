@@ -2,7 +2,7 @@ import { IGameSettings } from "./interfaces";
 
 // Single Responsibility: Manages game configuration
 export class GameSettings implements IGameSettings {
-  public readonly planetCount = 8;
+  public readonly planetCount = 6;
   public readonly baseTime = 30;
   public readonly timeDecrement = 2;
   public readonly pointsPerLevel = 100;
