@@ -1,8 +1,8 @@
 import { IGameEngine, IGameState, IGameSequence } from "./interfaces";
 import { GameSettings, GameTimer, ScoreManager } from "./GameManagers";
 import { Planet } from "./Planet";
+import { AudioManager } from "./AudioManager";
 
-// Single Responsibility: Manages the main game logic
 export class GameEngine implements IGameEngine {
   private gameState: IGameState;
   private gameSequence: IGameSequence;
@@ -10,9 +10,11 @@ export class GameEngine implements IGameEngine {
   private timer: GameTimer;
   private scoreManager: ScoreManager;
   private settings: GameSettings;
-  private sequenceTimeoutIds: NodeJS.Timeout[] = [];
+  private audioManager: AudioManager = AudioManager.getInstance();
 
-  // Event callbacks
+  // NEW: replaces sequenceTimeoutIds entirely
+  private sequenceRunId: number = 0;
+
   public onGameStateChange: ((state: IGameState) => void) | null = null;
   public onGameEnd: ((finalScore: number) => void) | null = null;
   public onSequenceStart: (() => void) | null = null;
@@ -37,10 +39,8 @@ export class GameEngine implements IGameEngine {
       userInput: [],
     };
 
-    // Initialize planets
     this.planets = this.initializePlanets();
 
-    // Setup timer callbacks
     this.timer.onTimeUp = () => this.endGame();
     this.timer.onTick = (time) => {
       this.gameState.timeRemaining = time;
@@ -49,11 +49,9 @@ export class GameEngine implements IGameEngine {
   }
 
   private initializePlanets(): Planet[] {
-    const positions = Planet.generatePlanetPositions(this.settings.planetCount);
-    return positions.map(
-      (pos, index) =>
-        new Planet(index + 1, pos, (id) => this.handlePlanetClick(id))
-    );
+    return Array.from({ length: this.settings.planetCount }, (_, index) => {
+      return new Planet(index, (id) => this.handlePlanetClick(id));
+    });
   }
 
   startGame(): void {
@@ -68,7 +66,7 @@ export class GameEngine implements IGameEngine {
   endGame(): void {
     this.gameState.isPlaying = false;
     this.timer.stop();
-    this.clearSequenceTimeouts();
+    this.invalidateSequence(); // NEW: kills any in-flight sequence loop
     this.setPlanetsClickable(false);
 
     const finalScore = this.gameState.currentScore;
@@ -91,14 +89,12 @@ export class GameEngine implements IGameEngine {
     if (planetId === expectedId) {
       this.gameSequence.currentIndex++;
 
-      // Check if sequence is complete
       if (this.gameSequence.currentIndex >= this.gameSequence.sequence.length) {
         this.onSequenceComplete();
         return true;
       }
       return true;
     } else {
-      // Wrong input - end game
       this.endGame();
       return false;
     }
@@ -113,6 +109,7 @@ export class GameEngine implements IGameEngine {
   }
 
   private resetGame(): void {
+    this.invalidateSequence(); // NEW: cancel any leftover sequence from a prior game
     this.scoreManager.resetCurrentScore();
     this.gameState = {
       currentScore: 0,
@@ -130,90 +127,114 @@ export class GameEngine implements IGameEngine {
   }
 
   private generateNextSequence(): void {
-    // Add one more planet to the sequence
-    const randomPlanetId =
-      Math.floor(Math.random() * this.settings.planetCount) + 1;
+    const randomPlanetId = Math.floor(
+      Math.random() * this.settings.planetCount,
+    );
     this.gameSequence.sequence.push(randomPlanetId);
     this.gameSequence.currentIndex = 0;
   }
 
-  private playSequence(): void {
+  // NEW: cancellation primitives
+  private invalidateSequence(): void {
+    this.sequenceRunId++;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  // REPLACED: async loop instead of nested setTimeout chains
+  private async playSequence(): Promise<void> {
+    const runId = ++this.sequenceRunId; // this run's identity
+
     this.setPlanetsClickable(false);
+    this.setPlanetsClicked(false);
     this.onSequenceStart?.();
 
-    this.gameSequence.sequence.forEach((planetId, index) => {
-      const timeout = setTimeout(() => {
-        const planet = this.planets.find((p) => p.id === planetId);
-        planet?.animate();
+    for (let index = 0; index < this.gameSequence.sequence.length; index++) {
+      const planetId = this.gameSequence.sequence[index];
+      const planet = this.planets.find((p) => p.id === planetId);
 
-        // If this is the last planet in sequence, enable clicking
-        if (index === this.gameSequence.sequence.length - 1) {
-          setTimeout(() => {
-            this.setPlanetsClickable(true);
-            this.onSequenceEnd?.();
-          }, this.settings.animationDuration);
-        }
-      }, index * (this.settings.animationDuration + 200));
+      this.audioManager.playPlanetSound(planetId);
+      planet?.animate();
+      this.onPlanetAnimate?.(planetId); // NEW: notify immediately
 
-      this.sequenceTimeoutIds.push(timeout);
-    });
+      await this.sleep(this.settings.animationDuration);
+      if (runId !== this.sequenceRunId) return; // cancelled mid-flight
+
+      planet?.stopAnimation();
+      this.onPlanetStopAnimate?.(planetId); // NEW: notify immediately
+
+      await this.sleep(600);
+      if (runId !== this.sequenceRunId) return; // cancelled mid-flight
+    }
+
+    this.setPlanetsClickable(true);
+    this.onSequenceEnd?.();
   }
 
   private handlePlanetClick(planetId: number): void {
     if (!this.gameState.isPlaying) return;
 
     const planet = this.planets.find((p) => p.id === planetId);
-    planet?.animate();
-
+    planet?.setClicked(true);
     this.checkUserInput(planetId);
   }
 
   private onSequenceComplete(): void {
-    // Award points
     const points = this.settings.pointsPerLevel * this.gameState.level;
     this.scoreManager.updateScore(points);
     this.gameState.currentScore = this.scoreManager.getCurrentScore();
     this.gameState.highestScore = this.scoreManager.getHighestScore();
 
-    // Stop current timer
     this.timer.stop();
 
-    // Small delay before next level
-    setTimeout(() => {
-      this.nextLevel();
-    }, 1000);
+    // still fine to use a single sleep here, but let's stay consistent and cancellation-safe
+    this.delayedNextLevel();
+  }
+
+  private async delayedNextLevel(): Promise<void> {
+    const runId = this.sequenceRunId;
+    await this.sleep(1000);
+    if (runId !== this.sequenceRunId) return; // game was reset/ended meanwhile
+    this.nextLevel();
   }
 
   private startTimer(): void {
     const timeForLevel = Math.max(
       this.settings.baseTime -
         (this.gameState.level - 1) * this.settings.timeDecrement,
-      10 // Minimum 10 seconds
+      10,
     );
     this.gameState.timeRemaining = timeForLevel;
     this.timer.start(timeForLevel);
   }
 
   private setPlanetsClickable(clickable: boolean): void {
-    this.planets.forEach((planet) => planet.setClickable(clickable));
+    this.planets.forEach((planet) => {
+      planet.setClickable(clickable);
+    });
   }
 
-  private clearSequenceTimeouts(): void {
-    this.sequenceTimeoutIds.forEach((id) => clearTimeout(id));
-    this.sequenceTimeoutIds = [];
+  private setPlanetsClicked(clicked: boolean): void {
+    this.planets.forEach((planet) => {
+      planet.setClicked(clicked);
+    });
   }
 
   private notifyStateChange(): void {
     this.onGameStateChange?.(this.getGameState());
   }
 
-  // Method to save score when game ends
   async saveScore(playerId: string): Promise<void> {
     if (this.gameState.currentScore > 0) {
       await this.scoreManager.saveScoreToDatabase(
         playerId,
-        this.gameState.currentScore
+        this.gameState.currentScore,
       );
     }
   }
+
+  public onPlanetAnimate: ((planetId: number) => void) | null = null;
+  public onPlanetStopAnimate: ((planetId: number) => void) | null = null;
 }

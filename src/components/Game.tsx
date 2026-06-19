@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useReducer } from "react";
 import { motion } from "motion/react";
 import { GameEngine } from "@/game/GameEngine";
 import { IGameState } from "@/game/interfaces";
@@ -8,6 +8,8 @@ import StartGame from "./StartGame";
 import Loading from "./Loading";
 import Header from "./Header";
 import Image from "next/image";
+import PlanetComponent from "./PlanetComponent";
+import Card from "./Card";
 interface GameProps {
   user?: {
     name?: string;
@@ -23,6 +25,11 @@ export default function Game({ user, onSignIn }: GameProps) {
   const [loading, setLoading] = useState(true);
   const [showStartMenu, setShowStartMenu] = useState(false);
   const [showGameArea, setShowGameArea] = useState(false);
+
+  const [isSequencePlaying, setIsSequencePlaying] = useState(false);
+  const [gameOverModal, setGameOverModal] = useState(false);
+  const [finalScore, setFinalScore] = useState(0);
+
   const [gameState, setGameState] = useState<IGameState>({
     currentScore: 0,
     highestScore: 0,
@@ -32,6 +39,7 @@ export default function Game({ user, onSignIn }: GameProps) {
   });
 
   const gameEngineRef = useRef<GameEngine | null>(null);
+  const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
   // Function to preload images
   const preloadImages = (): Promise<void[]> => {
@@ -78,6 +86,9 @@ export default function Game({ user, onSignIn }: GameProps) {
 
       gameEngineRef.current.onGameEnd = (score) => {
         console.log("Game ended with score:", score);
+        setIsSequencePlaying(false);
+        setGameOverModal(true);
+        setFinalScore(score);
 
         // Save score if user is logged in
         if (user?.playerId) {
@@ -87,10 +98,12 @@ export default function Game({ user, onSignIn }: GameProps) {
 
       gameEngineRef.current.onSequenceStart = () => {
         console.log("Sequence started");
+        setIsSequencePlaying(true);
       };
 
       gameEngineRef.current.onSequenceEnd = () => {
         console.log("Sequence ended");
+        setIsSequencePlaying(false);
       }; // Simulate some initialization time
       setTimeout(resolve, 500);
     });
@@ -142,14 +155,30 @@ export default function Game({ user, onSignIn }: GameProps) {
     };
   }, []);
 
+
+  useEffect(() => {
+    if (gameEngineRef.current) {
+      gameEngineRef.current.onPlanetAnimate = () => forceUpdate();
+      gameEngineRef.current.onPlanetStopAnimate = () => forceUpdate();
+    }
+  }, [gameEngineRef]);
   const handleStartGame = () => {
     setShowStartMenu(false);
     setTimeout(() => {
       setShowGameArea(true);
-    }, 300);
-    gameEngineRef.current?.startGame();
-  };
 
+      setTimeout(() => {
+        gameEngineRef.current?.startGame();
+      }, 300);
+    }, 300);
+  };
+  const handleRestart = () => {
+    setShowGameArea(false);
+    setGameOverModal(false);
+    setTimeout(() => {
+      setShowStartMenu(true);
+    }, 300);
+  };
   const [stars, setStars] = useState<
     Array<{ left: string; top: string; delay: string; duration: string }>
   >([]);
@@ -189,7 +218,7 @@ export default function Game({ user, onSignIn }: GameProps) {
             }}
             className="origin-center p-3 m-3 relative bg-background/80 backdrop-blur-sm text-center bg-card/30 rounded-2xl border border-cyan-300/30 shadow-2xl"
           >
-            <Header />
+            <Header gameState={gameState} />
           </motion.div>
         </div>
         {/* Main Game Area */}
@@ -278,146 +307,48 @@ export default function Game({ user, onSignIn }: GameProps) {
                 width={256}
                 height={256}
                 className="w-16 h-16 sm:w-26 sm:h-26 lg:w-32 lg:h-32 z-1 transition-all duration-300"
+                priority
               />
 
-              {/* orbit  */}
-              <div
-                className="pointer-events-none absolute w-35 h-35 md:w-80 md:h-80 sm:w-70 sm:h-70 rounded-full border-2 border-solid border-gray-300/20 transition-all duration-300 animate-spin"
-                style={{ animationDuration: "20s" }}
-              >
-                {/* planet  */}
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    bounce: 0.5,
-                    duration: 0.6,
+              {[...Array(3)].map((_, i) => (
+                <div
+                  className={`pointer-events-none absolute w-${35 + i * 25} h-${
+                    35 + i * 25
+                  } md:w-${80 + i * 60} md:h-${80 + i * 60} sm:w-${
+                    70 + i * 35
+                  } sm:h-${
+                    70 + i * 35
+                  } rounded-full border-2 border-solid border-gray-300/20 transition-all duration-300 ${
+                    gameState.isPlaying && gameState.currentScore > 3
+                      ? "animate-spin"
+                      : ""
+                  }`}
+                  style={{
+                    animationDuration: `${20 + (6 - i) < 0 ? 0 : (6 - i) * 10}s`,
                   }}
-                  className="pointer-events-auto hover:cursor-pointer absolute w-12 h-12 md:w-26 md:h-26 sm:w-18 sm:h-18 rounded-full  top-[50%] left-[100%] translate-x-[-50%] translate-y-[-50%]"
+                  key={i}
                 >
-                  <Image
-                    src={"/assets/images/image-0.webp"}
-                    alt="Game Planet"
-                    width={256}
-                    height={256}
-                    className="w-full h-full object-cover"
-                  />
-                </motion.div>
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    bounce: 0.5,
-                    duration: 0.6,
-                  }}
-                  className="pointer-events-auto hover:cursor-pointer absolute w-12 h-12 md:w-26 md:h-26 sm:w-18 sm:h-18 rounded-full  top-[50%] right-[100%] translate-x-[50%] translate-y-[-50%]"
-                >
-                  <Image
-                    src={"/assets/images/image-1.webp"}
-                    alt="Game Planet"
-                    width={256}
-                    height={256}
-                    className="w-full h-full object-cover"
-                  />
-                </motion.div>
-              </div>
-
-              {/* orbit  */}
-              <div
-                className="absolute w-60 h-60 md:w-140 md:h-140 sm:w-105 sm:h-105 rounded-full border-2 border-solid border-gray-300/20 transition-all duration-300 animate-spin"
-                style={{ animationDuration: "40s" }}
-              >
-                {/* planet  */}
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    bounce: 0.5,
-                    duration: 0.6,
-                  }}
-                  className="pointer-events-auto hover:cursor-pointer absolute w-12 h-12 md:w-26 md:h-26 sm:w-18 sm:h-18 rounded-full  top-[100%] left-[50%] translate-x-[-50%] translate-y-[-50%]"
-                >
-                  <Image
-                    src={"/assets/images/image-2.webp"}
-                    alt="Game Planet"
-                    width={256}
-                    height={256}
-                    className="w-full h-full object-cover"
-                  />
-                </motion.div>
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    bounce: 0.5,
-                    duration: 0.6,
-                  }}
-                  className="pointer-events-auto hover:cursor-pointer absolute w-12 h-12 md:w-26 md:h-26 sm:w-18 sm:h-18 rounded-full  top-[0%] right-[50%] translate-x-[50%] translate-y-[-50%]"
-                >
-                  <Image
-                    src={"/assets/images/image-3.webp"}
-                    alt="Game Planet"
-                    width={256}
-                    height={256}
-                    className="w-full h-full object-cover"
-                  />
-                </motion.div>
-              </div>
-
-              {/* orbit  */}
-              <div
-                className="absolute w-85 h-85 md:w-200 md:h-200 sm:w-140 sm:h-140 rounded-full border-2 border-solid border-gray-300/20 transition-all duration-300 animate-spin"
-                style={{ animationDuration: "60s" }}
-              >
-                {/* planet  */}
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    bounce: 0.5,
-                    duration: 0.6,
-                  }}
-                  className="pointer-events-auto hover:cursor-pointer absolute w-12 h-12 md:w-26 md:h-26 sm:w-18 sm:h-18 rounded-full  top-[50%] left-[100%] translate-x-[-50%] translate-y-[-50%]"
-                >
-                  <Image
-                    src={"/assets/images/image-4.webp"}
-                    alt="Game Planet"
-                    width={256}
-                    height={256}
-                    className="w-full h-full object-cover"
-                  />
-                </motion.div>
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    bounce: 0.5,
-                    duration: 0.6,
-                  }}
-                  className="pointer-events-auto hover:cursor-pointer absolute w-12 h-12 md:w-26 md:h-26 sm:w-18 sm:h-18 rounded-full  top-[50%] right-[100%] translate-x-[50%] translate-y-[-50%]"
-                >
-                  <Image
-                    src={"/assets/images/image-5.webp"}
-                    alt="Game Planet"
-                    width={256}
-                    height={256}
-                    className="w-full h-full object-cover"
-                  />
-                </motion.div>
-              </div>
-
+                  {gameEngineRef.current
+                    ?.getPlanets()
+                    .slice(i * 2, i * 2 + 2)
+                    .map((planet, index) => (
+                      <PlanetComponent
+                        key={planet.id}
+                        planet={planet}
+                        isSequencePlaying={isSequencePlaying}
+                        position={
+                          i % 2 !== 0
+                            ? index % 2 === 0
+                              ? "left"
+                              : "right"
+                            : index % 2 === 0
+                              ? "bottom"
+                              : "top"
+                        }
+                      />
+                    ))}
+                </div>
+              ))}
               {/* orbit  */}
               <div
                 className="pointer-events-none absolute w-47 h-47 md:w-110 md:h-110 sm:w-87 sm:h-87 rounded-full border-2 border-solid border-gray-300/20 transition-all duration-300 animate-spin"
@@ -432,6 +363,51 @@ export default function Game({ user, onSignIn }: GameProps) {
           </motion.div>
         </div>
 
+        {/* Game over model */}
+        {!gameState.isPlaying && gameOverModal && (
+          <motion.div
+            className="absolute inset-0 flex items-center justify-center bg-black/30 z-2"
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0 }}
+            transition={{
+              duration: 0.6,
+              ease: "easeInOut",
+              type: "spring",
+              bounce: 0.25,
+            }}
+          >
+            <Card>
+              <Card.Header>
+                <h2 className="text-2xl font-bold text-red-400">Game Over!</h2>
+              </Card.Header>
+              <Card.Content>
+                <div className="text-white text-center">
+                  <p className="mt-2">
+                    Your final score <br />{" "}
+                    <span className="text-yellow-400">
+                      {gameState.currentScore}
+                    </span>
+                  </p>
+                  <motion.button
+                    className="mt-4 px-4 py-2 bg-red-500/80 rounded hover:cursor-pointer"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    transition={{
+                      duration: 0.2,
+                      ease: "easeInOut",
+                      type: "spring",
+                      bounce: 0.25,
+                    }}
+                    onClick={handleRestart}
+                  >
+                    🔁 Restart
+                  </motion.button>
+                </div>
+              </Card.Content>
+            </Card>
+          </motion.div>
+        )}
         {/* Background stars effect */}
         <div className="absolute inset-0 overflow-hidden z-0">
           {stars.map((star, i) => (

@@ -1,33 +1,28 @@
+import { AudioManager } from "@/game/AudioManager";
 import { IPlanet } from "./interfaces";
 
 // Single Responsibility: Represents a single planet in the game
 export class Planet implements IPlanet {
   public id: number;
   public imagePath: string;
-  public position: { x: number; y: number };
   public isActive: boolean = false;
   public isClickable: boolean = true;
+  public isClicked: boolean = false;
   private animationTimeoutId: NodeJS.Timeout | null = null;
+  public activationTick: number = 0; // NEW: increments every animate() call
+  private audioManager: AudioManager = AudioManager.getInstance();
   public onPlanetClick: ((id: number) => void) | null = null;
 
-  constructor(
-    id: number,
-    position: { x: number; y: number },
-    onPlanetClick?: (id: number) => void
-  ) {
+  constructor(id: number, onPlanetClick?: (id: number) => void) {
     this.id = id;
     this.imagePath = `/assets/images/image-${id}.webp`;
-    this.position = position;
     this.onPlanetClick = onPlanetClick || null;
   }
 
   animate(): void {
     this.isActive = true;
-
-    // Auto-stop animation after duration
-    this.animationTimeoutId = setTimeout(() => {
-      this.stopAnimation();
-    }, 800);
+    this.activationTick++; // always changes, even for back-to-back calls
+    
   }
 
   stopAnimation(): void {
@@ -40,33 +35,16 @@ export class Planet implements IPlanet {
 
   onClick(): void {
     if (this.isClickable && this.onPlanetClick) {
+      this.audioManager.playPlanetSound(this.id);
       this.onPlanetClick(this.id);
     }
-  }
-
-  onHover(): void {
-    // Add hover effects if needed
   }
 
   setClickable(clickable: boolean): void {
     this.isClickable = clickable;
   }
 
-  // Static method to generate planet positions in a circular pattern
-  static generatePlanetPositions(
-    count: number,
-    radius: number = 250
-  ): { x: number; y: number }[] {
-    const positions: { x: number; y: number }[] = [];
-    const angleStep = (2 * Math.PI) / count;
-
-    for (let i = 0; i < count; i++) {
-      const angle = i * angleStep - Math.PI / 2; // Start from top
-      const x = Math.cos(angle) * radius;
-      const y = Math.sin(angle) * radius;
-      positions.push({ x, y });
-    }
-
-    return positions;
+  setClicked(clicked: boolean): void {
+    this.isClicked = clicked;
   }
 }

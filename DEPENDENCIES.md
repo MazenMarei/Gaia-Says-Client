@@ -7,24 +7,10 @@ To fully set up the Gaia Says game with all features, you'll need to install the
 ### Core Dependencies
 
 ```bash
-npm install mongoose next-auth framer-motion
+npm install next-auth framer-motion
 ```
 
 ### Individual Package Installation
-
-1. **MongoDB Integration:**
-
-```bash
-npm install mongoose
-npm install @types/mongoose
-```
-
-2. **Authentication (NextAuth.js):**
-
-```bash
-npm install next-auth
-npm install @next-auth/prisma-adapter  # Optional, for Prisma
-```
 
 3. **Animations (Framer Motion):**
 

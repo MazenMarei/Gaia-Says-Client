@@ -5,8 +5,8 @@ export class GameSettings implements IGameSettings {
   public readonly planetCount = 6;
   public readonly baseTime = 30;
   public readonly timeDecrement = 2;
-  public readonly pointsPerLevel = 100;
-  public readonly animationDuration = 800;
+  public readonly pointsPerLevel = 1;
+  public readonly animationDuration = 600;
 
   constructor(customSettings?: Partial<IGameSettings>) {
     if (customSettings) {

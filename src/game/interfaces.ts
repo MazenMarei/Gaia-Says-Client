@@ -1,3 +1,5 @@
+import { AudioManager } from "./AudioManager";
+
 // Interfaces following Interface Segregation Principle
 export interface IGameState {
   currentScore: number;
@@ -49,7 +51,6 @@ export interface IScoreManager {
 export interface IPlanet extends IAnimatable, IClickable {
   id: number;
   imagePath: string;
-  position: { x: number; y: number };
   isActive: boolean;
   isClickable: boolean;
 }
@@ -61,6 +62,14 @@ export interface ITimer {
   resume(): void;
   getTimeRemaining(): number;
   onTimeUp: () => void;
+}
+
+export interface IAudioManager {
+  playPlanetSound(planetId: number): void;
+  playCorrectSound(): void;
+  playWrongSound(): void;
+  playGameOverSound(): void;
+  setVolume(volume: number): void;
 }
 
 export interface IGameSettings {

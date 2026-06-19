@@ -34,6 +34,7 @@ export default function Loading() {
         >
           <Image
             src="/assets/images/logo.webp"
+            priority
             alt="gaia logo"
             className="w-16 h-16 md:w-24 md:h-24 lg:w-32 lg:h-32"
             width={128}

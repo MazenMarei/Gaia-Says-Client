@@ -20,6 +20,7 @@ export default function StartGame({
         <div>
           <Image
             src="/assets/images/logo.webp"
+            priority
             alt="gaia logo"
             className="w-16 h-16  sm:w-24 sm:h-24 lg:w-32 lg:h-32"
             width={128}

@@ -3,17 +3,12 @@
 import Image from "next/image";
 import { motion } from "motion/react";
 import { Settings, Star, Timer, Trophy } from "lucide-react";
+import { IGameState } from "@/game/interfaces";
 interface HeaderProps {
-  user?: {
-    name?: string;
-    image?: string;
-    highestScore?: number;
-  } | null;
-  onSignIn: () => void;
-  onSignOut: () => void;
+  gameState: IGameState;
 }
 
-export default function Header() {
+export default function Header({ gameState }: HeaderProps) {
   return (
     <header>
       <div className="flex justify-between items-center">
@@ -62,7 +57,7 @@ export default function Header() {
               className="pt-2 px-2 bg-white/10 backdrop-blur-sm rounded-md flex"
             >
               <Star className="text-gray-400 me-1" />
-              <span className="py-1">0</span>
+              <span className="py-1">{gameState.currentScore}</span>
             </motion.div>
 
             {/* Highest Score */}
@@ -73,11 +68,10 @@ export default function Header() {
               className="pt-2 px-2 bg-white/10 backdrop-blur-sm rounded-md flex"
             >
               <Trophy className="text-yellow-400/80 me-1" />
-              <span className="py-1">0</span>
+              <span className="py-1">{gameState.highestScore}</span>
             </motion.div>
           </div>
           <div className="flex justify-between gap-3">
-
             {/* Game Timer */}
             <motion.div
               initial={{ scale: 0, opacity: 0 }}
@@ -86,7 +80,7 @@ export default function Header() {
               className="pt-2 px-2 bg-white/10 backdrop-blur-sm rounded-md flex"
             >
               <Timer className="text-blue-400/80 me-1" />
-              <span className="py-1">0:00</span>
+              <span className="py-1">{gameState.timeRemaining}</span>
             </motion.div>
 
             {/* Settings Button */}

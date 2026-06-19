@@ -2,63 +2,115 @@
 
 import Image from "next/image";
 import { Planet as PlanetClass } from "@/game/Planet";
+import { motion, useAnimation } from "motion/react";
+import { useEffect, useState } from "react";
 
 interface PlanetComponentProps {
   planet: PlanetClass;
-  centerX: number;
-  centerY: number;
+  position: "left" | "right" | "top" | "bottom";
+  isSequencePlaying: boolean;
 }
+
+const planetPositions = {
+  left: { translate_x: "50%", translate_y: "-50%", top: "50%", right: "100%" },
+  right: { translate_x: "-50%", translate_y: "-50%", top: "50%", left: "100%" },
+  top: { translate_x: "-50%", translate_y: "-50%", top: "0%", left: "50%" },
+  bottom: {
+    translate_x: "-50%",
+    translate_y: "-50%",
+    top: "100%",
+    left: "50%",
+  },
+};
 
 export default function PlanetComponent({
   planet,
-  centerX,
-  centerY,
+  isSequencePlaying,
+  position,
 }: PlanetComponentProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [planetActive, setPlanetActive] = useState(planet.isActive);
+
+  const controls = useAnimation();
+
+  useEffect(() => {
+    setIsTouchDevice(window.matchMedia("(hover: none)").matches);
+  }, []);
+
+  // Track changes to planet.isActive
+  useEffect(() => {
+    setPlanetActive(planet.isActive);
+  }, [planet, planet.isActive]);
+
+  const isInteractable =
+    planet.isClickable && !planetActive && !isSequencePlaying;
+
   const handleClick = () => {
+    if (!isInteractable) return;
     planet.onClick();
   };
 
-  const handleHover = () => {
-    planet.onHover?.();
-  };
-
+  useEffect(() => {
+    if (planetActive) {
+      controls.start({ scale: 1.15, padding: "0.01rem" });
+    } else if (isSequencePlaying) {
+      controls.start({ scale: 1, padding: 0, filter: "brightness(100%)" });
+    } else if (isHovered && planet.isClickable && !isTouchDevice) {
+      controls.start({ filter: "brightness(150%)" });
+    } else {
+      controls.start({ scale: 1, padding: 0, filter: "brightness(100%)" });
+    }
+  }, [
+    planet.activationTick,
+    planetActive,
+    isSequencePlaying,
+    isHovered,
+    planet.isClickable,
+    isTouchDevice,
+    controls,
+  ]);
+  useEffect(() => {
+    if (planet.id != 0) return;
+    console.log(
+      `============== Planet ${planet.id} isActive: ${planet.isActive} =================`,
+    );
+  }, [planet, planetActive]);
   return (
-    <div
-      className={`absolute cursor-pointer transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ${
-        planet.isClickable ? "hover:scale-110" : "cursor-not-allowed"
-      } ${planet.isActive ? "scale-125 brightness-150" : "scale-100"}`}
-      style={{
-        left: centerX + planet.position.x,
-        top: centerY + planet.position.y,
-        filter: planet.isActive
-          ? "drop-shadow(0 0 20px #00ffff)"
-          : "drop-shadow(0 0 0px #fff)",
+    <motion.div
+      animate={controls}
+      whileTap={isInteractable ? { scale: 0.8 } : undefined}
+      transition={{
+        type: "spring",
+        stiffness: 100,
+        damping: 10,
       }}
       onClick={handleClick}
-      onMouseEnter={handleHover}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        pointerEvents: planet.isClickable && !planetActive ? "auto" : "none",
+      }}
+      className={`${planetActive ? "brightness-150 duration-100 bg-[#24d358]" : ""} ${
+        isInteractable ? "hover:cursor-pointer" : "cursor-not-allowed"
+      } absolute w-12 h-12 md:w-26 md:h-26 sm:w-18 sm:h-18 rounded-full ${Object.keys(
+        planetPositions[position],
+      )
+        .map(
+          (key) =>
+            `${key.replaceAll("_", "-")}-[${
+              (planetPositions[position] as Record<string, string>)[key]
+            }]`,
+        )
+        .join(" ")}`}
     >
-      <div className="relative w-16 h-16 md:w-20 md:h-20 lg:w-24 lg:h-24">
-        <Image
-          src={planet.imagePath}
-          alt={`Planet ${planet.id}`}
-          fill
-          className="object-contain"
-          draggable={false}
-          priority
-        />
-      </div>
-
-      {/* Orbital ring effect */}
-      <div
-        className="absolute inset-0 rounded-full border border-blue-300/30 animate-spin"
-        style={{
-          width: "120%",
-          height: "120%",
-          left: "-10%",
-          top: "-10%",
-          animationDuration: "20s",
-        }}
+      <Image
+        src={planet.imagePath}
+        alt={`Planet ${planet.id}`}
+        width={256}
+        height={256}
+        className="w-full h-full object-cover"
       />
-    </div>
+    </motion.div>
   );
 }
