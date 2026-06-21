@@ -12,15 +12,10 @@ interface PlanetComponentProps {
 }
 
 const planetPositions = {
-  left: { translate_x: "50%", translate_y: "-50%", top: "50%", right: "100%" },
-  right: { translate_x: "-50%", translate_y: "-50%", top: "50%", left: "100%" },
-  top: { translate_x: "-50%", translate_y: "-50%", top: "0%", left: "50%" },
-  bottom: {
-    translate_x: "-50%",
-    translate_y: "-50%",
-    top: "100%",
-    left: "50%",
-  },
+  left:   { translateX: "50%", translateY: "-50%", top: "50%", right: "100%" },
+  right:  { translateX: "-50%", translateY: "-50%", top: "50%", left: "100%" },
+  top:    { translateX: "-50%", translateY: "-50%", top: "0%", left: "50%" },
+  bottom: { translateX: "-50%", translateY: "-50%", top: "100%", left: "50%" },
 };
 
 export default function PlanetComponent({
@@ -46,7 +41,7 @@ export default function PlanetComponent({
   const isInteractable =
     planet.isClickable && !planetActive && !isSequencePlaying;
 
-  const handleClick = () => {
+  const handleClick = () => {    
     if (!isInteractable) return;
     planet.onClick();
   };
@@ -90,19 +85,11 @@ export default function PlanetComponent({
       onMouseLeave={() => setIsHovered(false)}
       style={{
         pointerEvents: planet.isClickable && !planetActive ? "auto" : "none",
+        ...planetPositions[position],
       }}
       className={`${planetActive ? "brightness-150 duration-100 bg-[#24d358]" : ""} ${
         isInteractable ? "hover:cursor-pointer" : "cursor-not-allowed"
-      } absolute w-12 h-12 md:w-26 md:h-26 sm:w-18 sm:h-18 rounded-full ${Object.keys(
-        planetPositions[position],
-      )
-        .map(
-          (key) =>
-            `${key.replaceAll("_", "-")}-[${
-              (planetPositions[position] as Record<string, string>)[key]
-            }]`,
-        )
-        .join(" ")}`}
+      } absolute w-12 h-12 sm:w-18 sm:h-18 md:w-26 md:h-26 rounded-full z-1`}
     >
       <Image
         src={planet.imagePath}
