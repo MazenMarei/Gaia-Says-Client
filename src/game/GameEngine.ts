@@ -14,6 +14,8 @@ export class GameEngine implements IGameEngine {
 
   // NEW: replaces sequenceTimeoutIds entirely
   private sequenceRunId: number = 0;
+  // NEW: allows pausing the game
+  private isPaused: boolean = false;
 
   public onGameStateChange: ((state: IGameState) => void) | null = null;
   public onGameEnd: ((finalScore: number) => void) | null = null;
@@ -72,6 +74,28 @@ export class GameEngine implements IGameEngine {
     const finalScore = this.gameState.currentScore;
     this.onGameEnd?.(finalScore);
     this.notifyStateChange();
+  }
+
+  pause(): void {
+    if (!this.gameState.isPlaying || this.isPaused) return;
+    this.isPaused = true;
+    this.timer.pause();
+    this.invalidateSequence(); // stop any in-flight sequence
+    this.setPlanetsClickable(false);
+    this.onPause?.();
+  }
+
+  resume(isSequencePlaying: boolean = true): void {
+    if (!this.gameState.isPlaying || !this.isPaused) return;
+    this.isPaused = false;
+    this.timer.resume();
+    if (isSequencePlaying) {
+      this.playSequence(); // replay the current sequence from the start
+    } else {
+      this.setPlanetsClickable(true);
+      this.onSequenceEnd?.();
+    }
+    this.onResume?.();
   }
 
   nextLevel(): void {
@@ -235,6 +259,21 @@ export class GameEngine implements IGameEngine {
     }
   }
 
+  toggleMute(): void {
+    this.settings.muted = !this.settings.muted;
+    this.audioManager.setVolume(this.settings.muted ? 0 : 0.5);
+  }
+
+  isPausedState(): boolean {
+    return this.isPaused;
+  }
+
+  isMuted(): boolean {
+    return this.settings.muted;
+  }
   public onPlanetAnimate: ((planetId: number) => void) | null = null;
   public onPlanetStopAnimate: ((planetId: number) => void) | null = null;
+
+  public onPause: (() => void) | null = null;
+  public onResume: (() => void) | null = null;
 }

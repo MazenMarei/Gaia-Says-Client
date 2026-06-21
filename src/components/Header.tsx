@@ -4,11 +4,13 @@ import Image from "next/image";
 import { motion } from "motion/react";
 import { Settings, Star, Timer, Trophy } from "lucide-react";
 import { IGameState } from "@/game/interfaces";
+import { useState } from "react";
 interface HeaderProps {
   gameState: IGameState;
+  onSettingsClicked: () => void;
 }
 
-export default function Header({ gameState }: HeaderProps) {
+export default function Header({ gameState, onSettingsClicked }: HeaderProps) {
   return (
     <header>
       <div className="flex justify-between items-center">
@@ -87,8 +89,9 @@ export default function Header({ gameState }: HeaderProps) {
             <motion.button
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="pt-2 px-2 bg-white/10 backdrop-blur-sm rounded-md flex hover:cursor-pointer"
-              whileHover={{ scale: 1.05 }}
+              className={`pt-2 px-2 bg-white/10 backdrop-blur-sm rounded-md flex ${!gameState.isPlaying ? "cursor-not-allowed opacity-50" : "hover:cursor-pointer"
+                }`}
+              whileHover={!gameState.isPlaying ? {} : { scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               transition={{
                 type: "spring",
@@ -96,8 +99,10 @@ export default function Header({ gameState }: HeaderProps) {
                 bounce: 0.5,
                 duration: 0.6,
               }}
+              disabled={!gameState.isPlaying}
+              onClick={onSettingsClicked}
             >
-              <Settings className="text-red-400/80 hover:cursor-pointer" />
+              <Settings className="text-red-400/80" />
             </motion.button>
           </div>
         </div>

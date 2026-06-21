@@ -7,7 +7,7 @@ export class GameSettings implements IGameSettings {
   public readonly timeDecrement = 2;
   public readonly pointsPerLevel = 1;
   public readonly animationDuration = 600;
-
+  public muted: boolean = false;
   constructor(customSettings?: Partial<IGameSettings>) {
     if (customSettings) {
       Object.assign(this, customSettings);

@@ -10,6 +10,7 @@ import Header from "./Header";
 import Image from "next/image";
 import PlanetComponent from "./PlanetComponent";
 import Card from "./Card";
+import SettingsMenu from "./SettingMenu";
 interface GameProps {
   user?: {
     name?: string;
@@ -37,7 +38,7 @@ export default function Game({ user, onSignIn }: GameProps) {
     level: 1,
     timeRemaining: 30,
   });
-
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const gameEngineRef = useRef<GameEngine | null>(null);
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
@@ -102,7 +103,6 @@ export default function Game({ user, onSignIn }: GameProps) {
       };
 
       gameEngineRef.current.onSequenceEnd = () => {
-        console.log("Sequence ended");
         setIsSequencePlaying(false);
       }; // Simulate some initialization time
       setTimeout(resolve, 500);
@@ -155,28 +155,53 @@ export default function Game({ user, onSignIn }: GameProps) {
     };
   }, []);
 
-
   useEffect(() => {
     if (gameEngineRef.current) {
       gameEngineRef.current.onPlanetAnimate = () => forceUpdate();
       gameEngineRef.current.onPlanetStopAnimate = () => forceUpdate();
     }
   }, [gameEngineRef]);
+
+  const handleSettingsClicked = () => {
+    if (!gameState.isPlaying) return;
+    setIsSettingsOpen(true);
+    gameEngineRef.current?.pause();
+    forceUpdate();
+  };
   const handleStartGame = () => {
     setShowStartMenu(false);
+    setIsSettingsOpen(false);
     setTimeout(() => {
       setShowGameArea(true);
 
       setTimeout(() => {
         gameEngineRef.current?.startGame();
+        forceUpdate();
       }, 300);
     }, 300);
   };
+
+  const handleMuteToggle = () => {
+    if (gameEngineRef.current) {
+      gameEngineRef.current.toggleMute();
+      forceUpdate();
+    }
+  };
+
+  const handleResume = () => {
+    setIsSettingsOpen(false);
+    gameEngineRef.current?.resume(isSequencePlaying);
+    forceUpdate();
+  };
+
   const handleRestart = () => {
     setShowGameArea(false);
+    setIsSettingsOpen(false);
+    gameEngineRef.current?.endGame();
     setGameOverModal(false);
     setTimeout(() => {
       setShowStartMenu(true);
+      forceUpdate();
     }, 300);
   };
   const [stars, setStars] = useState<
@@ -218,7 +243,10 @@ export default function Game({ user, onSignIn }: GameProps) {
             }}
             className="origin-center p-3 m-3 relative bg-background/80 backdrop-blur-sm text-center bg-card/30 rounded-2xl border border-cyan-300/30 shadow-2xl"
           >
-            <Header gameState={gameState} />
+            <Header
+              gameState={gameState}
+              onSettingsClicked={handleSettingsClicked}
+            />
           </motion.div>
         </div>
         {/* Main Game Area */}
@@ -312,7 +340,7 @@ export default function Game({ user, onSignIn }: GameProps) {
 
               {[...Array(3)].map((_, i) => (
                 <div
-                  className={`pointer-events-none absolute w-${35 + i * 25} h-${
+                  className={`mazen-test pointer-events-none absolute w-${35 + i * 25} h-${
                     35 + i * 25
                   } md:w-${80 + i * 60} md:h-${80 + i * 60} sm:w-${
                     70 + i * 35
@@ -406,6 +434,32 @@ export default function Game({ user, onSignIn }: GameProps) {
                 </div>
               </Card.Content>
             </Card>
+          </motion.div>
+        )}
+
+        {/* Settings Panel */}
+        {gameState.isPlaying && isSettingsOpen && (
+          <motion.div
+            className="absolute inset-0 flex items-center justify-center bg-black/30 z-2"
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0 }}
+            transition={{
+              duration: 0.6,
+              ease: "easeInOut",
+              type: "spring",
+              bounce: 0.25,
+            }}
+          >
+            <SettingsMenu
+              isOpen={isSettingsOpen}
+              currentScore={gameState.currentScore}
+              timeRemaining={gameState.timeRemaining}
+              isMuted={gameEngineRef.current?.isMuted() || false}
+              onResume={handleResume}
+              onRestart={handleRestart}
+              onToggleMute={handleMuteToggle}
+            />
           </motion.div>
         )}
         {/* Background stars effect */}
