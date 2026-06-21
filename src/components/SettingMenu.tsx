@@ -39,7 +39,7 @@ export default function SettingsMenu({
         >
           <Card>
             <Card.Header>
-              <h2 className="text-2xl sm:text-4xl font-bold text-cyan-400">
+              <h2 className="mb-5 text-2xl sm:text-4xl font-bold text-cyan-400">
                 ⚙️ Settings
               </h2>
             </Card.Header>
